@@ -2,28 +2,15 @@ import os
 import secrets
 from PIL import Image
 from flask import render_template, url_for, flash, redirect, request
-from open_blog.forms import RegistrationForm, LoginForm, UpdateAccountForm
+from open_blog.forms import RegistrationForm, LoginForm, UpdateAccountForm, PostForm
 from open_blog.models import User, Post
 from open_blog import app, db, bcrypt
 from flask_login import login_user, logout_user, current_user, login_required
 
-posts = [
-	{
-		"author":"Aditya Sharma",
-		"title":"The First Dot",
-		"date_posted":"March 21, 2026",
-		"content":"This marks the beginning of this project."
-	},
-	{
-		"author":"Mimansha Agarwal",
-		"title":"The Second Dot",
-		"date_posted":"March 21, 2026",
-		"content":"This is a dummy content for testing purposes."
-	}
-]
 
 @app.route("/")
 def home():
+	posts = Post.query.all()
 	return render_template("home.html", posts=posts)
 
 @app.route("/about")
@@ -81,7 +68,7 @@ def save_picture(form_picture):
 	i = Image.open(form_picture)
 	i.thumbnail(output_size)
 	i.save(picture_path)
-	
+
 	return picture_fn
 
 @app.route("/account", methods = ['GET', 'POST'])
@@ -104,7 +91,22 @@ def account():
 	return render_template('account.html', title = 'Account', image_file = image_file, form = form)
 
 
+@app.route("/post/new", methods = ['GET', 'POST'])
+@login_required
+def new_post():
+	form = PostForm()
+	if form.validate_on_submit():
+		post = Post(title = form.title.data, content = form.content.data, author = current_user)
+		db.session.add(post)
+		db.session.commit()
+		flash('Post has been created', 'success')
+		return redirect(url_for('home'))
+	return render_template('create_post.html', title = 'New Post', form = form)
 
+@app.route("/post/<int:post_id>")
+def post(post_id):
+	post = Post.query.get_or_404(post_id)
+	return render_template('post.html', title = post.title, post = post)
 
 
 
