@@ -1,7 +1,8 @@
-from open_blog import db, login_manager
+from open_blog import db, login_manager, app
 from datetime import datetime
 from flask_login import UserMixin
-
+from itsdangerous import URLSafeTimedSerializer
+from itsdangerous.exc import SignatureExpired, BadSignature
 
 @login_manager.user_loader
 def load_user(userid):
@@ -14,6 +15,22 @@ class User(db.Model, UserMixin):
 	image_file = db.Column(db.String(20), nullable=False, default='default.jpg')
 	password = db.Column(db.String(60), nullable=False)
 	posts = db.relationship('Post', backref='author', lazy=True)
+
+	def get_reset_token(self):
+		s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+		return s.dumps({'user_id': self.id})
+
+	@staticmethod
+	def verify_reset_token(token, expires_sec=1800):
+		s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+		try:
+			data = s.loads(token, max_age=expires_sec)
+			user_id = data['user_id']
+		except SignatureExpired:
+			return None
+		except BadSignature:
+			return None
+		return User.query.get(user_id)
 
 	def __repr__(self):
 		return f"User('{self.username}', '{self.email}', '{self.image_file}')"
